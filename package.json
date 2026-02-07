@@ -1,14 +1,117 @@
 {
   "name": "mct-email-marketing",
   "version": "1.0.0",
-  "description": "MCT module for EMAIL-MARKETING",
+  "description": "Email marketing service for MCT",
   "main": "dist/index.js",
   "scripts": {
+    "start": "node dist/index.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
-    "dev": "tsx watch src/index.ts",
-    "test": "jest",
-    "setup": "npm install && npx drizzle-kit push:pg"
+    "lint": "eslint . --ext .ts",
+    "test": "jest"
   },
-  "keywords": ["mct", "api", "microservice"],
-  "license": "MIT"
+  "dependencies": {
+    "express": "^4.17.1",
+    "mongoose": "^6.0.12",
+    "dotenv": "^10.0.0",
+    "nodemailer": "^6.6.3",
+    "body-parser": "^1.19.0",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.13",
+    "@types/mongoose": "^5.11.97",
+    "@types/node": "^16.11.12",
+    "ts-node-dev": "^1.1.8",
+    "typescript": "^4.4.4",
+    "eslint": "^7.32.0",
+    "jest": "^27.3.1",
+    "@types/jest": "^27.0.2",
+    "ts-jest": "^27.0.7"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
 }
+### `src/index.ts`
+import express from 'express';
+import bodyParser from 'body-parser';
+import cors from 'cors';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+import { router as campaignRoutes } from './api/routes';
+dotenv.config();
+const app = express();
+const PORT = process.env.PORT || 3000;
+mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('Could not connect to MongoDB', err));
+app.use(bodyParser.json());
+app.use(cors());
+app.use('/api/campaigns', campaignRoutes);
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+### `src/api/routes.ts`
+import { Router } from 'express';
+import { getCampaigns, createCampaign, updateCampaign, deleteCampaign } from '../services/campaignService';
+export const router = Router();
+router.get('/', getCampaigns);
+router.post('/', createCampaign);
+router.put('/:id', updateCampaign);
+router.delete('/:id', deleteCampaign);
+### `src/db/schema.ts`
+import mongoose from 'mongoose';
+const campaignSchema = new mongoose.Schema({
+  name: String,
+  subject: String,
+  body: String,
+  sentDate: Date,
+  status: {
+    type: String,
+    enum: ['draft', 'sent', 'scheduled'],
+    default: 'draft'
+  }
+});
+export const Campaign = mongoose.model('Campaign', campaignSchema);
+### `src/mct/server.ts`
+// Placeholder for MCT server integration
+console.log('MCT Server integration not implemented yet.');
+### `src/mct/tools.ts`
+// Placeholder for MCT tools
+console.log('MCT Tools integration not implemented yet.');
+### `src/services/campaignService.ts`
+import { Campaign } from '../db/schema';
+export const getCampaigns = async (req, res) => {
+  try {
+    const campaigns = await Campaign.find();
+    res.json(campaigns);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+export const createCampaign = async (req, res) => {
+  const campaign = new Campaign(req.body);
+  try {
+    const savedCampaign = await campaign.save();
+    res.status(201).json(savedCampaign);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+export const updateCampaign = async (req, res) => {
+  try {
+    const updatedCampaign = await Campaign.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(updatedCampaign);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+export const deleteCampaign = async (req, res) => {
+  try {
+    const deletedCampaign = await Campaign.findByIdAndDelete(req.params.id);
+    res.json(deletedCampaign);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
